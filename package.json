@@ -1,0 +1,13 @@
+{
+  "name": "gitscope-ai-monorepo",
+  "version": "1.0.0",
+  "description": "GitScope AI — GitHub Repository Intelligence Platform",
+  "private": true,
+  "scripts": {
+    "dev:client": "npm --prefix client run dev",
+    "dev:server": "npm --prefix server run dev",
+    "build:client": "npm --prefix client run build",
+    "build:server": "npm --prefix server run build",
+    "build": "npm run build:server && npm run build:client"
+  }
+}
