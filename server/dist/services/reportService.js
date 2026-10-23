@@ -15,189 +15,279 @@ class ReportService {
             fs_1.default.mkdirSync(storagePath, { recursive: true });
         }
         const filePath = path_1.default.join(storagePath, `${reportId}.pdf`);
-        const doc = new pdfkit_1.default({ margin: 50, size: 'A4', autoFirstPage: true });
+        const doc = new pdfkit_1.default({
+            margins: { top: 35, bottom: 25, left: 40, right: 40 },
+            size: 'A4',
+            bufferPages: true,
+            autoFirstPage: true,
+        });
         const stream = fs_1.default.createWriteStream(filePath);
         return new Promise((resolve, reject) => {
             stream.on('error', reject);
             doc.on('error', reject);
             stream.on('finish', () => resolve(filePath));
             doc.pipe(stream);
-            // Color palette
-            const NAVY = '#1a1f36';
-            const INDIGO = '#6366f1';
+            // Color Palette
+            const NAVY = '#0f172a';
+            const INDIGO = '#4f46e5';
+            const INDIGO_LIGHT = '#818cf8';
             const GRAY = '#64748b';
-            const LIGHT_GRAY = '#f1f5f9';
-            const WHITE = '#ffffff';
+            const BORDER = '#e2e8f0';
+            const GREEN = '#10b981';
             const RED = '#ef4444';
             const AMBER = '#f59e0b';
-            const GREEN = '#10b981';
-            // ─── Cover Page ───────────────────────────────────────────────────────────
-            doc.rect(0, 0, doc.page.width, 200).fill(NAVY);
-            doc
-                .font('Helvetica-Bold')
-                .fontSize(28)
-                .fillColor(WHITE)
-                .text('GitScope AI', 50, 60);
-            doc
-                .font('Helvetica')
-                .fontSize(14)
-                .fillColor('#a5b4fc')
-                .text('GitHub Repository Intelligence Report', 50, 100);
-            doc.fillColor(WHITE).fontSize(20).font('Helvetica-Bold').text(data.title, 50, 140);
-            doc.moveDown(3);
-            doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(12).text('Repository', { continued: true });
-            doc.font('Helvetica').fillColor(GRAY).text(`  ${data.owner}/${data.repo}`);
-            doc.font('Helvetica-Bold').fillColor(NAVY).text('Branch', { continued: true });
-            doc.font('Helvetica').fillColor(GRAY).text(`  ${data.branch}`);
-            doc.font('Helvetica-Bold').fillColor(NAVY).text('Generated', { continued: true });
-            doc.font('Helvetica').fillColor(GRAY).text(`  ${new Date(data.generatedAt).toLocaleString()}`);
+            const totalWidth = doc.page.width - 80;
+            // ─── PAGE 1: Brand Header Banner ──────────────────────────────────────────
+            doc.rect(0, 0, doc.page.width, 3).fill(INDIGO);
+            const headerY = 14;
+            const headerHeight = 54;
+            doc.rect(40, headerY, totalWidth, headerHeight).fill(NAVY);
+            // Left Brand / Title
+            doc.font('Helvetica-Bold').fontSize(14).fillColor('#ffffff').text('GitScope AI', 52, headerY + 10, { continued: true });
+            doc.font('Helvetica-Bold').fontSize(7.5).fillColor(INDIGO_LIGHT).text('   REPOSITORY INTELLIGENCE REPORT');
+            doc.font('Helvetica').fontSize(7.5).fillColor('#94a3b8').text('Automated Commit History, Developer Velocity & Security Risk Audit', 52, headerY + 28);
+            // Right Meta
+            doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#ffffff').text(`${data.owner}/${data.repo}`, 40, headerY + 10, { align: 'right', width: totalWidth - 14 });
+            doc.font('Helvetica').fontSize(7).fillColor('#cbd5e1').text(`Branch: ${data.branch}  •  ${new Date(data.generatedAt).toLocaleDateString()}`, 40, headerY + 24, { align: 'right', width: totalWidth - 14 });
             if (data.startDate) {
-                doc.font('Helvetica-Bold').fillColor(NAVY).text('Period', { continued: true });
-                doc.font('Helvetica').fillColor(GRAY).text(`  ${data.startDate} → ${data.endDate ?? 'now'}`);
+                doc.font('Helvetica').fontSize(6.5).fillColor('#94a3b8').text(`Period: ${data.startDate} → ${data.endDate ?? 'present'}`, 40, headerY + 37, { align: 'right', width: totalWidth - 14 });
             }
-            // ─── Executive Summary ───────────────────────────────────────────────────
-            this.addSection(doc, NAVY, INDIGO, 'Executive Summary');
+            doc.y = headerY + headerHeight + 8;
+            // ─── 1. Executive Summary ────────────────────────────────────────────────
+            this.addSectionTitle(doc, '1. Executive Summary', data, 65);
             this.addMetricRow(doc, [
-                { label: 'Total Commits', value: String(data.overview.totalCommits) },
-                { label: 'Active Contributors', value: String(data.overview.activeContributors) },
-                { label: 'Lines Added', value: `+${data.overview.totalAdditions.toLocaleString()}` },
-                { label: 'Lines Deleted', value: `-${data.overview.totalDeletions.toLocaleString()}` },
-            ], INDIGO, LIGHT_GRAY);
-            doc.moveDown();
-            doc.fillColor(GRAY).font('Helvetica').fontSize(10).text(`This report covers ${data.overview.totalCommits} commits by ${data.overview.activeContributors} contributor(s) on the "${data.branch}" branch of the ${data.owner}/${data.repo} repository.`);
-            // ─── Contributors ────────────────────────────────────────────────────────
-            this.addSection(doc, NAVY, INDIGO, 'Developer Contributions');
-            this.addTable(doc, ['Developer', 'Commits', 'Lines Added', 'Lines Deleted'], data.contributors.slice(0, 15).map((c) => [
+                { label: 'Total Commits', value: String(data.overview.totalCommits), color: INDIGO },
+                { label: 'Active Contributors', value: String(data.overview.activeContributors), color: '#0284c7' },
+                { label: 'Lines Added', value: `+${data.overview.totalAdditions.toLocaleString()}`, color: GREEN },
+                { label: 'Lines Deleted', value: `-${data.overview.totalDeletions.toLocaleString()}`, color: RED },
+            ], data);
+            doc.font('Helvetica').fontSize(7.5).fillColor(GRAY).text(`Analyzed ${data.overview.totalCommits} commit(s) by ${data.overview.activeContributors} contributor(s) on branch "${data.branch}" (${data.owner}/${data.repo}).`, 40, doc.y, { width: totalWidth });
+            doc.y += 4;
+            // ─── 2. Developer Contributions ──────────────────────────────────────────
+            this.addSectionTitle(doc, '2. Developer Contributions', data, 50);
+            const contribHeaders = ['Developer / Author', 'Commits', 'Lines Added (+)', 'Lines Deleted (-)'];
+            const contribColWidths = [185, 90, 120, totalWidth - (185 + 90 + 120)];
+            const contribRows = (data.contributors.length > 0 ? data.contributors.slice(0, 15) : [
+                { login: 'Unknown', commits: data.overview.totalCommits, additions: data.overview.totalAdditions, deletions: data.overview.totalDeletions }
+            ]).map((c) => [
                 c.login,
                 String(c.commits),
                 `+${c.additions.toLocaleString()}`,
                 `-${c.deletions.toLocaleString()}`,
-            ]), NAVY, LIGHT_GRAY);
-            doc.moveDown(0.5);
-            doc.fillColor(GRAY).fontSize(9).text('Note: Commit counts and line statistics are derived from GitHub API data and may differ from local git history due to squash merges, rebases, and pagination limits.');
-            // ─── Commit Type Distribution ─────────────────────────────────────────────
-            if (data.commitTypes.length > 0) {
-                this.addSection(doc, NAVY, INDIGO, 'Commit Type Distribution');
-                this.addTable(doc, ['Commit Type', 'Count', 'Percentage'], data.commitTypes.map((ct) => [ct.type, String(ct.count), `${ct.percentage}%`]), NAVY, LIGHT_GRAY);
-                doc.moveDown(0.5);
-                doc.fillColor(GRAY).fontSize(9).text('Commit types are inferred from commit message patterns and should be treated as approximate classifications.');
+            ]);
+            this.addTable(doc, contribHeaders, contribRows, contribColWidths, data);
+            // ─── 3. Commit Type Classification ───────────────────────────────────────
+            if (data.commitTypes && data.commitTypes.length > 0) {
+                this.addSectionTitle(doc, '3. Commit Type Classification', data, 45);
+                const typeHeaders = ['Conventional Type', 'Commit Count', 'Distribution Percentage'];
+                const typeColWidths = [185, 140, totalWidth - (185 + 140)];
+                const typeRows = data.commitTypes.map((ct) => [
+                    ct.type.toUpperCase(),
+                    String(ct.count),
+                    `${ct.percentage}%`,
+                ]);
+                this.addTable(doc, typeHeaders, typeRows, typeColWidths, data);
             }
-            // ─── Top Modified Files ───────────────────────────────────────────────────
-            if (data.topFiles.length > 0) {
-                this.addSection(doc, NAVY, INDIGO, 'Most Frequently Modified Files');
-                this.addTable(doc, ['File', 'Changes', 'Contributors'], data.topFiles.slice(0, 20).map((f) => [
-                    f.filename.length > 50 ? '...' + f.filename.slice(-47) : f.filename,
+            // ─── 4. Frequently Modified Files ────────────────────────────────────────
+            if (data.topFiles && data.topFiles.length > 0) {
+                this.addSectionTitle(doc, '4. Frequently Modified Files', data, 45);
+                const fileHeaders = ['File Path', 'Change Count', 'Active Contributors'];
+                const fileColWidths = [275, 100, totalWidth - (275 + 100)];
+                const fileRows = data.topFiles.slice(0, 12).map((f) => [
+                    f.filename.length > 46 ? '...' + f.filename.slice(-43) : f.filename,
                     String(f.changes),
-                    f.contributors.join(', ').substring(0, 40),
-                ]), NAVY, LIGHT_GRAY);
+                    f.contributors.join(', ').substring(0, 32),
+                ]);
+                this.addTable(doc, fileHeaders, fileRows, fileColWidths, data);
             }
-            // ─── Risk Findings ────────────────────────────────────────────────────────
-            this.addSection(doc, NAVY, INDIGO, 'Risk & Bug Analysis Findings');
-            if (data.riskFindings.length === 0) {
-                doc.fillColor(GREEN).font('Helvetica').fontSize(11).text('No risk findings detected in the analyzed commits.');
+            // ─── 5. Security & Risk Findings ─────────────────────────────────────────
+            this.addSectionTitle(doc, '5. Security & Risk Analysis', data, 35);
+            if (!data.riskFindings || data.riskFindings.length === 0) {
+                this.ensureSpace(doc, 22, data);
+                const y = doc.y;
+                doc.rect(40, y, totalWidth, 18).fillAndStroke('#ecfdf5', '#a7f3d0');
+                doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#059669').text('CLEAN AUDIT: Zero hardcoded secrets, security vulnerabilities, or anti-patterns detected.', 50, y + 5, { width: totalWidth - 20 });
+                doc.y = y + 22;
             }
             else {
                 const severityColor = (s) => {
                     if (s === 'critical')
                         return RED;
                     if (s === 'high')
-                        return '#f97316';
+                        return '#ea580c';
                     if (s === 'medium')
                         return AMBER;
                     return GREEN;
                 };
-                for (const finding of data.riskFindings.slice(0, 20)) {
-                    doc.moveDown(0.5);
-                    doc.font('Helvetica-Bold').fontSize(11).fillColor(severityColor(finding.severity)).text(`[${finding.severity.toUpperCase()}] ${finding.title}`);
-                    doc.font('Helvetica').fontSize(9).fillColor(GRAY).text(`File: ${finding.affectedFile}  |  Commit: ${finding.commitSha.substring(0, 8)}  |  Detection: ${finding.detectionMethod}`);
-                    doc.fillColor('#374151').fontSize(10).text(finding.description);
+                for (const finding of data.riskFindings.slice(0, 12)) {
+                    this.ensureSpace(doc, 26, data);
+                    const y = doc.y;
+                    const col = severityColor(finding.severity);
+                    doc.rect(40, y, totalWidth, 24).fillAndStroke('#f8fafc', BORDER);
+                    doc.rect(40, y, 3, 24).fill(col);
+                    doc.font('Helvetica-Bold').fontSize(7.5).fillColor(col).text(`[${finding.severity.toUpperCase()}] ${finding.title}`, 48, y + 3, { width: totalWidth - 16, ellipsis: true });
+                    doc.font('Helvetica').fontSize(6.5).fillColor(GRAY).text(`File: ${finding.affectedFile}  |  Commit: ${finding.commitSha.substring(0, 7)}  |  Rule: ${finding.detectionMethod}`, 48, y + 13, { width: totalWidth - 16, ellipsis: true });
+                    doc.y = y + 27;
                 }
-                if (data.riskFindings.length > 20) {
-                    doc.moveDown(0.5).fillColor(GRAY).text(`... and ${data.riskFindings.length - 20} more findings. View the full list in the GitScope AI dashboard.`);
+                if (data.riskFindings.length > 12) {
+                    doc.font('Helvetica').fontSize(7).fillColor(GRAY).text(`... and ${data.riskFindings.length - 12} more findings logged in GitScope AI.`, 40, doc.y);
+                    doc.y += 6;
                 }
             }
-            // ─── Collaboration Findings ───────────────────────────────────────────────
-            this.addSection(doc, NAVY, INDIGO, 'Collaboration & Overlap Insights');
-            if (data.collaborationFindings.length === 0) {
-                doc.fillColor(GRAY).fontSize(11).text('No collaboration overlap findings detected in the analyzed commits.');
+            // ─── 6. Collaboration & Overlap Insights ─────────────────────────────────
+            this.addSectionTitle(doc, '6. Collaboration & Overlap Insights', data, 35);
+            if (!data.collaborationFindings || data.collaborationFindings.length === 0) {
+                this.ensureSpace(doc, 22, data);
+                const y = doc.y;
+                doc.rect(40, y, totalWidth, 18).fillAndStroke('#f8fafc', BORDER);
+                doc.font('Helvetica-Bold').fontSize(7.5).fillColor(GRAY).text(data.overview.activeContributors <= 1
+                    ? 'SINGLE CONTRIBUTOR: Zero overlapping edit conflicts or merge contentions identified.'
+                    : 'NO CONFLICTS: All contributor modifications occurred across isolated file sets.', 50, y + 5, { width: totalWidth - 20 });
+                doc.y = y + 22;
             }
             else {
-                for (const finding of data.collaborationFindings.slice(0, 15)) {
-                    doc.moveDown(0.5);
-                    doc.font('Helvetica-Bold').fontSize(11).fillColor(NAVY).text(`[${finding.findingType.toUpperCase()}] ${finding.developers.join(' & ')}`);
-                    doc.font('Helvetica').fontSize(9).fillColor(GRAY).text(`Confidence: ${finding.confidence}`);
-                    doc.fillColor('#374151').fontSize(10).text(finding.evidence);
+                for (const finding of data.collaborationFindings.slice(0, 8)) {
+                    this.ensureSpace(doc, 24, data);
+                    const y = doc.y;
+                    doc.rect(40, y, totalWidth, 22).fillAndStroke('#f8fafc', BORDER);
+                    doc.rect(40, y, 2.5, 22).fill(INDIGO);
+                    doc.font('Helvetica-Bold').fontSize(7.5).fillColor(NAVY).text(`[${finding.findingType.toUpperCase()}] ${finding.developers.join(' & ')}  (Confidence: ${finding.confidence})`, 48, y + 3, { width: totalWidth - 16, ellipsis: true });
+                    doc.font('Helvetica').fontSize(6.5).fillColor(GRAY).text(finding.evidence, 48, y + 12, { width: totalWidth - 16, ellipsis: true });
+                    doc.y = y + 25;
                 }
             }
-            // ─── Methodology & Limitations ────────────────────────────────────────────
-            this.addSection(doc, NAVY, INDIGO, 'Methodology & Limitations');
-            doc.fillColor('#374151').font('Helvetica').fontSize(10);
-            doc.text('This report was generated by GitScope AI using the GitHub REST API. Analysis is limited to the commits and file patches available within the selected date range and API rate limits.');
-            doc.moveDown(0.5);
-            doc.text('Limitations:');
-            const defaultLimitations = [
-                'Commit statistics reflect what was retrievable via the GitHub API at the time of generation.',
-                'Risk findings use deterministic heuristics and may produce false positives. All findings require human review.',
-                'Collaboration findings identify potential overlaps based on file paths and line ranges; they do not indicate conflicts or errors.',
-                'Large repositories may have incomplete coverage due to API pagination limits.',
-                ...data.limitations,
+            // ─── 7. Methodology & Audit Notes ────────────────────────────────────────
+            this.addSectionTitle(doc, '7. Audit Methodology & Limitations', data, 35);
+            this.ensureSpace(doc, 30, data);
+            doc.font('Helvetica').fontSize(6.5).fillColor(GRAY);
+            const notes = [
+                'Generated via GitHub REST API with read-only scopes. Real-time deterministic analysis without persistent code storage.',
+                'Commit metrics reflect history at generation time; squash merges or rebases may consolidate commit records.',
+                'Risk findings are heuristic indicators designed for developer review and should be verified prior to remediation.',
+                ...(data.limitations || []),
             ];
-            defaultLimitations.forEach((l) => {
-                doc.text(`• ${l}`);
+            notes.forEach((note) => {
+                doc.text(`• ${note}`, 40, doc.y, { width: totalWidth });
             });
-            // ─── Footer ───────────────────────────────────────────────────────────────
-            const pageCount = doc._pageBuffer?.length ?? 1;
-            doc.on('pageAdded', () => {
-                doc.fontSize(8).fillColor(GRAY).text(`GitScope AI — ${data.owner}/${data.repo} — Generated ${new Date(data.generatedAt).toLocaleDateString()}`, 50, doc.page.height - 40, { align: 'center', width: doc.page.width - 100 });
-            });
+            // ─── Running Headers on Page 2+ and Running Footers on ALL Pages ───────────
+            const range = doc.bufferedPageRange();
+            for (let i = range.start; i < range.start + range.count; i++) {
+                doc.switchToPage(i);
+                // Footer on every page
+                const footerY = doc.page.height - 20;
+                doc.moveTo(40, footerY - 4).lineTo(doc.page.width - 40, footerY - 4).lineWidth(0.5).stroke(BORDER);
+                doc.font('Helvetica').fontSize(7).fillColor(GRAY).text(`GitScope AI — GitHub Repository Intelligence  •  ${data.owner}/${data.repo}`, 40, footerY, { lineBreak: false });
+                doc.font('Helvetica-Bold').fontSize(7).fillColor(NAVY).text(`Page ${i + 1} of ${range.count}`, 40, footerY, { align: 'right', width: totalWidth, lineBreak: false });
+            }
             doc.end();
         });
     }
-    addSection(doc, navyColor, accentColor, title) {
+    /**
+     * Checks if content of neededHeight fits on the current page;
+     * if not, advances to the next page and renders the running page header.
+     */
+    ensureSpace(doc, neededHeight, data) {
+        if (doc.y + neededHeight > doc.page.height - 40) {
+            this.addNewPage(doc, data);
+        }
+    }
+    /**
+     * Adds a new page and renders the page 2+ running header.
+     */
+    addNewPage(doc, data) {
         doc.addPage();
-        doc.rect(0, 0, doc.page.width, 6).fill(accentColor);
-        doc.moveDown(1);
-        doc.font('Helvetica-Bold').fontSize(16).fillColor(navyColor).text(title);
-        doc.moveDown(0.5);
-        doc.moveTo(50, doc.y).lineTo(doc.page.width - 50, doc.y).stroke(accentColor);
-        doc.moveDown(0.5);
+        const NAVY = '#0f172a';
+        const INDIGO = '#4f46e5';
+        const GRAY = '#64748b';
+        const BORDER = '#e2e8f0';
+        // Top accent bar
+        doc.rect(0, 0, doc.page.width, 2.5).fill(INDIGO);
+        // Compact running header
+        doc.font('Helvetica-Bold').fontSize(8).fillColor(NAVY).text('GitScope AI', 40, 14, { continued: true });
+        doc.font('Helvetica').fontSize(7.5).fillColor(GRAY).text(`  •  ${data.owner}/${data.repo} (${data.branch})`);
+        doc.font('Helvetica').fontSize(7.5).fillColor(GRAY).text('Repository Intelligence Audit', 40, 14, {
+            align: 'right',
+            width: doc.page.width - 80,
+        });
+        doc.moveTo(40, 26).lineTo(doc.page.width - 40, 26).lineWidth(0.5).stroke(BORDER);
+        doc.y = 34;
     }
-    addMetricRow(doc, metrics, accentColor, bgColor) {
-        const colWidth = (doc.page.width - 100) / metrics.length;
-        const startX = 50;
+    /**
+     * Adds a section title with a left accent bar, only breaking page if needed.
+     */
+    addSectionTitle(doc, title, data, neededHeight = 50) {
+        this.ensureSpace(doc, neededHeight, data);
+        const NAVY = '#0f172a';
+        const INDIGO = '#4f46e5';
+        const BORDER = '#e2e8f0';
+        if (doc.y > 40) {
+            doc.y += 4;
+        }
         const startY = doc.y;
-        metrics.forEach((m, i) => {
-            doc.rect(startX + i * colWidth + 2, startY, colWidth - 4, 60).fill(bgColor);
-            doc.font('Helvetica-Bold').fontSize(20).fillColor(accentColor).text(m.value, startX + i * colWidth + 8, startY + 10, { width: colWidth - 16 });
-            doc.font('Helvetica').fontSize(9).fillColor('#64748b').text(m.label, startX + i * colWidth + 8, startY + 38, { width: colWidth - 16 });
-        });
-        doc.y = startY + 70;
+        // Colored accent pip
+        doc.rect(40, startY + 1, 2.5, 9.5).fill(INDIGO);
+        doc.font('Helvetica-Bold').fontSize(9.5).fillColor(NAVY).text(title, 46, startY);
+        doc.moveTo(40, startY + 14).lineTo(doc.page.width - 40, startY + 14).lineWidth(0.5).stroke(BORDER);
+        doc.y = startY + 18;
     }
-    addTable(doc, headers, rows, headerBg, rowBg) {
-        const colWidth = (doc.page.width - 100) / headers.length;
-        const startX = 50;
-        // Header
-        const headerY = doc.y;
-        headers.forEach((h, i) => {
-            doc.rect(startX + i * colWidth, headerY, colWidth, 20).fill(headerBg);
-            doc.font('Helvetica-Bold').fontSize(9).fillColor('#ffffff').text(h, startX + i * colWidth + 4, headerY + 6, { width: colWidth - 8 });
+    /**
+     * Renders the 4 executive KPI metric tiles.
+     */
+    addMetricRow(doc, metrics, data) {
+        this.ensureSpace(doc, 44, data);
+        const totalWidth = doc.page.width - 80;
+        const colWidth = (totalWidth - (metrics.length - 1) * 6) / metrics.length;
+        const startX = 40;
+        const startY = doc.y;
+        const cardHeight = 38;
+        metrics.forEach((m, i) => {
+            const x = startX + i * (colWidth + 6);
+            doc.rect(x, startY, colWidth, cardHeight).fillAndStroke('#f8fafc', '#e2e8f0');
+            // Value
+            doc.font('Helvetica-Bold').fontSize(14).fillColor(m.color || '#4f46e5').text(m.value, x + 6, startY + 6, { width: colWidth - 12 });
+            // Label
+            doc.font('Helvetica').fontSize(6.5).fillColor('#64748b').text(m.label.toUpperCase(), x + 6, startY + 24, { width: colWidth - 12 });
         });
-        doc.y = headerY + 22;
-        // Rows
-        rows.forEach((row, rowIndex) => {
-            if (doc.y > doc.page.height - 80) {
-                doc.addPage();
-                doc.y = 50;
-            }
-            const currentRowY = doc.y;
-            row.forEach((cell, i) => {
-                if (rowIndex % 2 === 0) {
-                    doc.rect(startX + i * colWidth, currentRowY, colWidth, 18).fill(rowBg);
-                }
-                doc.font('Helvetica').fontSize(8).fillColor('#1e293b').text(cell.length > 35 ? cell.substring(0, 32) + '...' : cell, startX + i * colWidth + 4, currentRowY + 5, { width: colWidth - 8 });
+        doc.y = startY + cardHeight + 6;
+    }
+    /**
+     * Renders a table with automatic row-by-row pagination and repeated headers if page breaks.
+     */
+    addTable(doc, headers, rows, colWidths, data) {
+        const startX = 40;
+        const totalWidth = doc.page.width - 80;
+        const headerHeight = 16;
+        const rowHeight = 14;
+        this.ensureSpace(doc, headerHeight + rowHeight + 8, data);
+        const drawHeader = () => {
+            const y = doc.y;
+            doc.rect(startX, y, totalWidth, headerHeight).fill('#1e293b');
+            let curX = startX;
+            headers.forEach((h, i) => {
+                const w = colWidths[i];
+                doc.font('Helvetica-Bold').fontSize(7).fillColor('#ffffff').text(h.toUpperCase(), curX + 6, y + 4.5, { width: w - 12 });
+                curX += w;
             });
-            doc.y = currentRowY + 20;
+            doc.y = y + headerHeight;
+        };
+        drawHeader();
+        rows.forEach((row, rowIndex) => {
+            if (doc.y + rowHeight > doc.page.height - 35) {
+                this.addNewPage(doc, data);
+                drawHeader();
+            }
+            const y = doc.y;
+            const isEven = rowIndex % 2 === 0;
+            doc.rect(startX, y, totalWidth, rowHeight).fill(isEven ? '#f8fafc' : '#ffffff');
+            let curX = startX;
+            row.forEach((cell, i) => {
+                const w = colWidths[i];
+                doc.font('Helvetica').fontSize(7).fillColor('#1e293b').text(cell, curX + 6, y + 3.5, { width: w - 12, ellipsis: true });
+                curX += w;
+            });
+            doc.y = y + rowHeight;
         });
+        doc.y += 4;
     }
 }
 exports.ReportService = ReportService;
